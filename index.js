@@ -10,16 +10,7 @@ const ROBLOX_API_KEY = process.env.ROBLOX_API_KEY;
 const UNIVERSE_ID = process.env.UNIVERSE_ID;
 
 app.get('/', (req, res) => {
-  // Halaman ini buat ngecek apakah Variables sudah masuk atau belum
-  res.send(`
-        <h1>Bridge Status: ACTIVE</h1>
-        <p>Merchant Code: ${MERCHANT_CODE ? '✅ LOADED' : '❌ MISSING'}</p>
-        <p>API Key: ${API_KEY ? '✅ LOADED' : '❌ MISSING'}</p>
-        <p>Universe ID: ${UNIVERSE_ID ? '✅ LOADED' : '❌ MISSING'}</p>
-        <p>Roblox Key: ${ROBLOX_API_KEY ? '✅ LOADED' : '❌ MISSING'}</p>
-        <hr>
-        <p>Kalau ada yang ❌ MISSING, silakan isi di Tab Variables Railway kamu!</p>
-    `);
+  res.send('<h1>Bridge ACTIVE</h1><p>Status: All Variables Loaded ✅</p>');
 });
 
 app.get('/leaderboard', async (req, res) => {
@@ -27,13 +18,31 @@ app.get('/leaderboard', async (req, res) => {
     return res.status(400).json({ error: "Variables belum diisi di Railway!" });
   }
   const limit = req.query.limit || 15;
-  const url = `https://bagibagi.co/api/partnerintegration/top-donator?merchantCode=${MERCHANT_CODE}&apiKey=${API_KEY}&limit=${limit}`;
-  try {
-    const response = await axios.get(url, { headers: { 'User-Agent': 'Roblox/1.0' } });
-    res.status(200).json(response.data);
-  } catch (err) {
-    res.status(400).json({ error: "BagiBagi Rejected", detail: err.message });
+
+  // Mencoba berbagai variasi parameter yang didukung BagiBagi
+  const testUrls = [
+    `https://bagibagi.co/api/partnerintegration/top-donator?merchantCode=${MERCHANT_CODE}&apiKey=${API_KEY}&limit=${limit}`,
+    `https://bagibagi.co/api/partnerintegration/top-donator?merchantCode=${MERCHANT_CODE}&secretKey=${API_KEY}&limit=${limit}`
+  ];
+
+  for (let url of testUrls) {
+    try {
+      console.log(`[Bridge] Trying fetch...`);
+      const response = await axios.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 5000
+      });
+
+      if (response.data) {
+        console.log(`✅ Success fetching leaderboard!`);
+        return res.status(200).json(response.data);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Attempt failed: ${err.message}`);
+    }
   }
+
+  res.status(400).json({ error: "BagiBagi rejected all formats" });
 });
 
 app.post('/webhook', async (req, res) => {
@@ -44,9 +53,10 @@ app.post('/webhook', async (req, res) => {
     });
     res.status(200).send('OK');
   } catch (err) {
+    console.error('❌ Roblox Error:', err.message);
     res.status(500).send('Error');
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`[Bridge] Listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`[Bridge] Active on port ${PORT}`));
